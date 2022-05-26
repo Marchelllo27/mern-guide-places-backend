@@ -5,9 +5,12 @@ const fileUpload = require("../middleware/file-upload");
 const usersControllers = require("../controllers/user-controllers");
 
 const router = express.Router();
+//all routes start with /api/users/
 
+//GET ALL USERS
 router.get("/", usersControllers.getUsers);
 
+// SIGN UP
 router.post(
   "/signup",
   fileUpload.single("image"),
@@ -17,6 +20,11 @@ router.post(
   usersControllers.signup
 );
 
+// LOGIN
 router.post("/login", usersControllers.login);
+
+// GET AVATAR IMAGE FROM AWS S3
+
+router.get("/images/:key", usersControllers.downloadFromAwsS3);
 
 module.exports = router;

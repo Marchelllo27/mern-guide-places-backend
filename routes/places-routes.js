@@ -11,6 +11,9 @@ router.get("/:pid", placesControllers.getPlaceById);
 
 router.get("/user/:uid", placesControllers.getPlacesByUserId);
 
+// GET IMAGE FOR PLACE FROM AWS S3
+router.get("/images/:key", placesControllers.downloadFromAwsS3)
+
 router.use(checkAuth);
 
 // CREATE
@@ -33,5 +36,7 @@ router.patch(
 
 // DELETE
 router.delete("/:pid", placesControllers.deletePlace);
+
+
 
 module.exports = router;

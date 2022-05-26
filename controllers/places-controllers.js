@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
 
 const getCoordsForAddress = require("../util/location");
+const { uploadFile, getFileStream } = require("../util/s3");
 const HttpError = require("../models/http-error");
 const Place = require("../models/place");
 const User = require("../models/user");
@@ -73,7 +74,7 @@ const createPlace = async (req, res, next) => {
     description,
     address,
     location: coordinates,
-    image: req.file.path,
+    image: req.file.filename,
     creator: req.userData.userId,
   });
 
@@ -88,15 +89,25 @@ const createPlace = async (req, res, next) => {
     return next(new HttpError("Could not find user for provided id.", 404));
   }
 
-  try {
-    const sess = await mongoose.startSession();
-    sess.startTransaction();
-    await createdPlace.save({ session: sess });
-    user.places.push(createdPlace);
-    await user.save({ session: sess });
-    await sess.commitTransaction();
-  } catch (error) {
-    return next(new HttpError("Creating place failed, please try again.", 500));
+  // Send a avatar image to AWS S3 and after that delete it from our server
+  if (req.file) {
+    const result = await uploadFile(req.file);
+    fs.unlink(req.file.path, err => {
+      console.log(err);
+    });
+
+    try {
+      const sess = await mongoose.startSession();
+      sess.startTransaction();
+      await createdPlace.save({ session: sess });
+      user.places.push(createdPlace);
+      await user.save({ session: sess });
+      await sess.commitTransaction();
+    } catch (error) {
+      return next(
+        new HttpError("Creating place failed, please try again.", 500)
+      );
+    }
   }
 
   res.status(201).json({ place: createdPlace.toObject({ getters: true }) });
@@ -185,8 +196,17 @@ const deletePlace = async (req, res, next) => {
   res.status(200).json({ message: "deleted" });
 };
 
+//DOWNLOAD IMAGE FROM AWS S3
+const downloadFromAwsS3 = (req, res, next) => {
+  const key = req.params.key;
+
+  const readStream = getFileStream(key);
+  readStream.pipe(res);
+};
+
 exports.getPlaceById = getPlaceById;
 exports.getPlacesByUserId = getPlacesByUserId;
 exports.createPlace = createPlace;
 exports.updatePlace = updatePlace;
 exports.deletePlace = deletePlace;
+exports.downloadFromAwsS3 = downloadFromAwsS3;

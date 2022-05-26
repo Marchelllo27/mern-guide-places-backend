@@ -1,7 +1,9 @@
+const fs = require("fs");
 const { validationResult } = require("express-validator");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const { uploadFile, getFileStream } = require("../util/s3");
 const User = require("../models/user");
 const HttpError = require("../models/http-error");
 
@@ -9,7 +11,7 @@ const HttpError = require("../models/http-error");
 const getUsers = async (req, res, next) => {
   let users;
   try {
-    users = await User.find({}, "-password");
+    users = await User.find({}, "-password -__v");
   } catch (error) {
     return next(
       new HttpError("Fetching users failed, please try again later.", 500)
@@ -54,7 +56,7 @@ const signup = async (req, res, next) => {
   const createdUser = new User({
     name,
     email,
-    image: req.file.path,
+    image: req.file.filename,
     password: hachedPassword,
     places: [],
   });
@@ -73,13 +75,22 @@ const signup = async (req, res, next) => {
       { expiresIn: "1h" }
     );
   } catch (error) {
-    console.log("here");
     return next(new HttpError("Signing up failed, please try again.", 500));
   }
 
-  res
-    .status(201)
-    .json({ userId: createdUser.id, email: createdUser.email, token: token });
+  // Send a avatar image to AWS S3 and after that delete it from our server
+  if (req.file) {
+    const result = await uploadFile(req.file);
+    fs.unlink(req.file.path, err => {
+      console.log(err);
+    });
+  }
+
+  res.status(201).json({
+    userId: createdUser.id,
+    email: createdUser.email,
+    token: token,
+  });
 };
 
 // LOGIN
@@ -138,8 +149,16 @@ const login = async (req, res, next) => {
   });
 };
 
+const downloadFromAwsS3 = (req, res, next) => {
+  const key = req.params.key;
+
+  const readStream = getFileStream(key);
+  readStream.pipe(res);
+};
+
 module.exports = {
   getUsers,
   signup,
   login,
+  downloadFromAwsS3,
 };
