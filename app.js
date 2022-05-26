@@ -34,7 +34,7 @@ app.use((error, req, res, next) => {
     });
   }
 
-  console.log(error)
+  console.log(error);
 
   // check if response was sent allready
   if (res.headerSent) {
