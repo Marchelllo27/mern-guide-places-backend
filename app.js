@@ -19,6 +19,7 @@ app.use("/uploads/images", express.static(path.join("uploads", "images")));
 app.use(cors);
 
 // ROUTES
+app.get("/", (req, res) => res.json({ message: "Welcome to API!" }));
 app.use("/api/places", placesRoutes);
 app.use("/api/users", usersRoutes);
 
